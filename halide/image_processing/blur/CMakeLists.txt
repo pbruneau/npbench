@@ -14,7 +14,7 @@ find_package(OpenMP)
 add_halide_generator(blur.generator SOURCES blur_generator.cpp)
 add_halide_library(blur_auto_schedule FROM blur.generator
                    GENERATOR blur
-                   AUTOSCHEDULER Halide::Mullapudi2016)
+                   AUTOSCHEDULER Halide::Adams2019)
 
 # Filters
 add_halide_library(blur FROM blur.generator)

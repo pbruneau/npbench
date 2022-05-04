@@ -16,7 +16,7 @@ add_halide_generator(conv2d_bias.generator SOURCES conv2d_bias_generator.cpp)
 add_halide_library(conv2d_bias FROM conv2d_bias.generator)
 add_halide_library(conv2d_bias_auto_schedule FROM conv2d_bias.generator
                    GENERATOR conv2d_bias
-                   AUTOSCHEDULER Halide::Mullapudi2016)
+                   AUTOSCHEDULER Halide::Adams2019)
 
 # Main executable
 add_executable(conv2d_bias_process process.cpp)

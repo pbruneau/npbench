@@ -16,7 +16,7 @@ add_halide_generator(hist.generator SOURCES hist_generator.cpp)
 add_halide_library(hist FROM hist.generator)
 add_halide_library(hist_auto_schedule FROM hist.generator
                    GENERATOR hist
-                   AUTOSCHEDULER Halide::Mullapudi2016)
+                   AUTOSCHEDULER Halide::Adams2019)
 
 # Main executable
 add_executable(hist_process process.cpp)

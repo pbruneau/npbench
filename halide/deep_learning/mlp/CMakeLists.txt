@@ -16,7 +16,7 @@ add_halide_generator(mlp.generator SOURCES mlp_generator.cpp)
 add_halide_library(mlp FROM mlp.generator)
 add_halide_library(mlp_auto_schedule FROM mlp.generator
                    GENERATOR mlp
-                   AUTOSCHEDULER Halide::Mullapudi2016)
+                   AUTOSCHEDULER Halide::Adams2019)
 
 # Main executable
 add_executable(mlp_process process.cpp)

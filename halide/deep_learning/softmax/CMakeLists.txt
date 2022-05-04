@@ -16,7 +16,7 @@ add_halide_generator(softmax.generator SOURCES softmax_generator.cpp)
 add_halide_library(softmax FROM softmax.generator)
 add_halide_library(softmax_auto_schedule FROM softmax.generator
                    GENERATOR softmax
-                   AUTOSCHEDULER Halide::Mullapudi2016)
+                   AUTOSCHEDULER Halide::Adams2019)
 
 # Main executable
 add_executable(softmax_process process.cpp)
