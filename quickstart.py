@@ -31,10 +31,17 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--dace", type=util.str2bool, nargs="?", default=True)
     args = vars(parser.parse_args())
 
+    # replaced lenet by mlp as the former fails with dace
+    #benchmarks = [
+    #    'adi', 'arc_distance', 'atax', 'azimint_naive', 'bicg', 'cavity_flow',
+    #    'cholesky2', 'compute', 'doitgen', 'floyd_warshall', 'gemm', 'gemver',
+    #    'gesummv', 'go_fast', 'hdiff', 'jacobi_2d', 'lenet', 'syr2k', 'trmm',
+    #    'vadv'
+    #]
     benchmarks = [
         'adi', 'arc_distance', 'atax', 'azimint_naive', 'bicg', 'cavity_flow',
         'cholesky2', 'compute', 'doitgen', 'floyd_warshall', 'gemm', 'gemver',
-        'gesummv', 'go_fast', 'hdiff', 'jacobi_2d', 'lenet', 'syr2k', 'trmm',
+        'gesummv', 'go_fast', 'hdiff', 'jacobi_2d', 'mlp', 'syr2k', 'trmm',
         'vadv'
     ]
 
