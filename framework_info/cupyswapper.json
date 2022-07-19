@@ -1,0 +1,10 @@
+{
+    "framework": {
+        "simple_name": "cupyswapper",
+        "full_name": "cupyswapper",
+        "prefix": "cp",
+        "postfix": "cupyswapper",
+        "class": "CupyFramework",
+        "arch": "gpu"
+    }
+}

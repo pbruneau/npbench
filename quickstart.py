@@ -45,9 +45,9 @@ if __name__ == "__main__":
         'vadv'
     ]
 
-    frameworks = ["numpy", "numba"]
-    if args['dace']:
-        frameworks.append("dace_cpu")
+    frameworks = ["numpy", "numba", "cupy", "cupyswapper"]
+    #if args['dace']:
+    #    frameworks.append("dace_cpu")
 
     for benchname in benchmarks:
         for fname in frameworks:
