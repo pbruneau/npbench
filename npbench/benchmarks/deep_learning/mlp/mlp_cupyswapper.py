@@ -20,6 +20,7 @@ def mlp(input, w1, b1, w2, b2, w3, b3):
     w2 = cp.asarray(w2)
     b1 = cp.asarray(b1)
     w1 = cp.asarray(w1)
+    input = cp.asarray(input)
     x = relu(input @ w1 + b1)
     x = relu(x @ w2 + b2)
     x = softmax(x @ w3 + b3)
