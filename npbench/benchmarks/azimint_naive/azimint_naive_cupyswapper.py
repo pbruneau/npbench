@@ -3,10 +3,9 @@ import cupy as cp
 
 
 def azimint_naive(data, radius, npt):
-    radius = cp.asarray(radius)
     data = cp.asarray(data)
     rmax = radius.max()
-    res = cp.zeros(npt, dtype=cp.float64)
+    res = cp.zeros(npt, dtype=np.float64)
     for i in range(npt):
         r1 = rmax * i / npt
         r2 = rmax * (i + 1) / npt

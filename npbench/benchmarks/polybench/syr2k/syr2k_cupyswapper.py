@@ -3,6 +3,9 @@ import cupy as cp
 
 
 def kernel(alpha, beta, C, A, B):
+    B = cp.asarray(B)
+    A = cp.asarray(A)
+    C = cp.asarray(C)
     for i in range(A.shape[0]):
         C[(i), :i + 1] *= beta
         for k in range(A.shape[1]):

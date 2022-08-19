@@ -3,14 +3,14 @@ import cupy as cp
 
 
 def relu(x):
-    return cp.asnumpy(cp.maximum(x, 0))
+    return cp.maximum(x, 0)
 
 
 def softmax(x):
     tmp_max = cp.max(x, axis=-1, keepdims=True)
     tmp_out = cp.exp(x - tmp_max)
     tmp_sum = cp.sum(tmp_out, axis=-1, keepdims=True)
-    return cp.asnumpy(tmp_out / tmp_sum)
+    return tmp_out / tmp_sum
 
 
 def mlp(input, w1, b1, w2, b2, w3, b3):

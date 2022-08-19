@@ -3,12 +3,6 @@ import cupy as cp
 
 
 def build_up_b(b, rho, dt, u, v, dx, dy):
-    dy = cp.asarray(dy)
-    dx = cp.asarray(dx)
-    v = cp.asarray(v)
-    u = cp.asarray(u)
-    dt = cp.asarray(dt)
-    rho = cp.asarray(rho)
     b[1:-1, 1:-1] = rho * (1 / dt * ((u[1:-1, 2:] - u[1:-1, 0:-2]) / (2 *
         dx) + (v[2:, 1:-1] - v[0:-2, 1:-1]) / (2 * dy)) - ((u[1:-1, 2:] - u
         [1:-1, 0:-2]) / (2 * dx)) ** 2 - 2 * ((u[2:, 1:-1] - u[0:-2, 1:-1]) /
@@ -17,8 +11,6 @@ def build_up_b(b, rho, dt, u, v, dx, dy):
 
 
 def pressure_poisson(nit, p, dx, dy, b):
-    p = cp.asarray(p)
-    nit = cp.asarray(nit)
     pn = cp.empty_like(p)
     pn = p.copy()
     for q in range(nit):
@@ -33,6 +25,9 @@ def pressure_poisson(nit, p, dx, dy, b):
 
 
 def cavity_flow(nx, ny, nt, nit, u, v, dt, dx, dy, p, rho, nu):
+    p = cp.asarray(p)
+    v = cp.asarray(v)
+    u = cp.asarray(u)
     un = cp.empty_like(u)
     vn = cp.empty_like(v)
     b = cp.zeros((ny, nx))

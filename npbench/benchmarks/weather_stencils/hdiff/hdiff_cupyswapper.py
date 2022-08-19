@@ -3,6 +3,8 @@ import cupy as cp
 
 
 def hdiff(in_field, out_field, coeff):
+    coeff = cp.asarray(coeff)
+    out_field = cp.asarray(out_field)
     in_field = cp.asarray(in_field)
     I, J, K = out_field.shape[0], out_field.shape[1], out_field.shape[2]
     lap_field = 4.0 * in_field[1:I + 3, 1:J + 3, :] - (in_field[2:I + 4, 1:

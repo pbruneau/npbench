@@ -3,6 +3,7 @@ import cupy as cp
 
 
 def kernel(TSTEPS, N, u):
+    u = cp.asarray(u)
     v = cp.empty(u.shape, dtype=u.dtype)
     p = cp.empty(u.shape, dtype=u.dtype)
     q = cp.empty(u.shape, dtype=u.dtype)
