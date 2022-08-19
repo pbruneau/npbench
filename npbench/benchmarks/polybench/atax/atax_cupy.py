@@ -3,4 +3,4 @@ import cupy as np
 
 def kernel(A, x):
 
-    return (A @ x) @ A
+    return np.asnumpy((A @ x) @ A)

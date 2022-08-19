@@ -20,4 +20,4 @@ def azimint_naive(data, radius, npt):
         mask_r12 = np.logical_and((r1 <= radius), (radius < r2))
         values_r12 = data[mask_r12]
         res[i] = values_r12.mean()
-    return res
+    return np.asnumpy(res)
