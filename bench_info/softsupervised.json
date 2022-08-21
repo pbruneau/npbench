@@ -1,0 +1,26 @@
+{
+    "benchmark": {
+        "name": "Soft Supervised",
+        "short_name": "softsupervised",
+        "relative_path": "softsupervised",
+        "module_name": "softsupervised",
+        "func_name": "main",
+        "kind": "microapp",
+        "domain": "Learning",
+        "dwarf": "dense_linear_algebra",
+        "parameters": {
+            "S": { "N": 500, "d": 5, "prop": 0.3},
+            "M": { "N": 2000, "d": 40, "prop": 0.3},
+            "L": { "N": 5000, "d": 100, "prop": 0.3},
+            "paper": { "N": 5000, "d": 100, "prop": 0.3}
+        },
+        "init": {
+            "func_name": "initialize",
+            "input_args": ["N", "d", "prop"],
+            "output_args": ["data", "labels"]
+        },
+        "input_args": ["data", "labels"],
+        "array_args": ["data", "labels"],
+        "output_args": []
+}
+    }
