@@ -3,16 +3,21 @@ import sys
 from sklearn.metrics.pairwise import euclidean_distances
 
 
+def sqdist(X):
+    sx = np.sum(X**2, axis=1, keepdims=True)
+    mat = -2 * X.dot(X.T) + sx + sx.T
+    return np.maximum(mat, 0.)
+
 def local_rbfdot(dat, quantile=0.02):
     (N,d) = dat.shape
-
+    
     # Normalize data columns between [-1,1]
     means = np.mean(dat, 0)
     dat = np.subtract(dat, means)
     maxs = np.amax(np.absolute(dat), 0)
-    maxs = [maxs[i] if maxs[i] > np.finfo(float).eps else 1.0 for i in range(len(maxs))]
+    maxs = (maxs < np.finfo(float).eps) * 1.0 + (maxs >= np.finfo(float).eps) * maxs
     dat = np.divide(dat, maxs)
-    kern = euclidean_distances(dat, dat, squared=True)
+    kern = sqdist(dat)
 
     # compute element specific standard deviations
     sigmas = np.array([np.percentile(np.sqrt(kern), quantile*100, axis=1)])
@@ -60,7 +65,7 @@ class SoftSupervised():
         self.K_ = len(np.unique(self.classes_)) - 1
 
         # classes should range from -1 to K-1
-        if not all(sorted(np.unique(self.classes_)) == np.arange(-1, self.K_)):
+        if not all(np.unique(self.classes_) == np.arange(-1, self.K_)):
             raise Exception("classes should range from -1 to K-1")
 
         # initialize p, q and r, unless already exist

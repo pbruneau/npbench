@@ -4,15 +4,21 @@ import sys
 from sklearn.metrics.pairwise import euclidean_distances
 
 
+def sqdist(X):
+    sx = cp.sum(X ** 2, axis=1, keepdims=True)
+    mat = -2 * X.dot(X.T) + sx + sx.T
+    return cp.maximum(mat, 0.0)
+
+
 def local_rbfdot(dat, quantile=0.02):
     N, d = dat.shape
     means = cp.mean(dat, 0)
     dat = cp.subtract(dat, means)
     maxs = cp.amax(cp.absolute(dat), 0)
-    maxs = [(maxs[i] if maxs[i] > np.finfo(float).eps else 1.0) for i in
-        range(len(maxs))]
+    maxs = (maxs < np.finfo(float).eps) * 1.0 + (maxs >= np.finfo(float).eps
+        ) * maxs
     dat = cp.divide(dat, maxs)
-    kern = euclidean_distances(dat, dat, squared=True)
+    kern = sqdist(dat)
     sigmas = cp.array([cp.percentile(cp.sqrt(kern), quantile * 100, axis=1)])
     c_sigmas = sigmas.reshape((-1, 1))
     c_sigmas = c_sigmas.dot(sigmas)
@@ -52,7 +58,7 @@ class SoftSupervised:
             raise Exception(
                 'classes should have at least 1 missing element (value == -1)')
         self.K_ = len(cp.unique(self.classes_)) - 1
-        if not all(sorted(cp.unique(self.classes_)) == cp.arange(-1, self.K_)):
+        if not all(cp.unique(self.classes_) == cp.arange(-1, self.K_)):
             raise Exception('classes should range from -1 to K-1')
         if self.p_ is None:
             self.p_ = cp.ones((self.n_, self.K_)) * (1.0 / self.K_)
