@@ -11,7 +11,7 @@ def build_up_b(b, rho, dt, u, v, dx, dy):
 
 
 def pressure_poisson(nit, p, dx, dy, b):
-    pn = cp.empty_like(p)
+    pn = cp.empty_like(cp.asarray(p))
     pn = p.copy()
     for q in range(nit):
         pn = p.copy()
@@ -25,12 +25,33 @@ def pressure_poisson(nit, p, dx, dy, b):
 
 
 def cavity_flow(nx, ny, nt, nit, u, v, dt, dx, dy, p, rho, nu):
-    p = cp.asarray(p)
-    v = cp.asarray(v)
-    u = cp.asarray(u)
-    un = cp.empty_like(u)
-    vn = cp.empty_like(v)
-    b = cp.zeros((ny, nx))
+    if isinstance(nu, np.ndarray):
+        nu = cp.asarray(nu)
+    if isinstance(rho, np.ndarray):
+        rho = cp.asarray(rho)
+    if isinstance(p, np.ndarray):
+        p = cp.asarray(p)
+    if isinstance(dy, np.ndarray):
+        dy = cp.asarray(dy)
+    if isinstance(dx, np.ndarray):
+        dx = cp.asarray(dx)
+    if isinstance(dt, np.ndarray):
+        dt = cp.asarray(dt)
+    if isinstance(v, np.ndarray):
+        v = cp.asarray(v)
+    if isinstance(u, np.ndarray):
+        u = cp.asarray(u)
+    if isinstance(nit, np.ndarray):
+        nit = cp.asarray(nit)
+    if isinstance(nt, np.ndarray):
+        nt = cp.asarray(nt)
+    if isinstance(ny, np.ndarray):
+        ny = cp.asarray(ny)
+    if isinstance(nx, np.ndarray):
+        nx = cp.asarray(nx)
+    un = cp.empty_like(cp.asarray(u))
+    vn = cp.empty_like(cp.asarray(v))
+    b = cp.zeros((int(ny), int(nx)))
     for n in range(nt):
         un = u.copy()
         vn = v.copy()

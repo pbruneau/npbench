@@ -33,12 +33,10 @@ if __name__ == "__main__":
 
     benchmarks = [
         'adi', 'arc_distance', 'atax', 'azimint_naive', 'bicg', 'cavity_flow',
-        'cholesky2', 'compute', 'doitgen', 'floyd_warshall', 'gemm', 'gemver',
+        'cholesky2', 'compute', 'convolutional', 'doitgen', 'floyd_warshall', 'gemm', 'gemver',
         'gesummv', 'go_fast', 'hdiff', 'jacobi_2d', 'mlp', 'softsupervised',
         'syr2k', 'trmm', 'vadv'
     ]
-    
-    #benchmarks = [ 'convolutional' ]
     
     frameworks = ["numpy", "numba", "cupy", "cupyswapper"]
     #if args['dace']:

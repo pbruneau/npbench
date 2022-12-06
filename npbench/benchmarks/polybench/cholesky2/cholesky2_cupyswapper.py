@@ -3,5 +3,6 @@ import cupy as cp
 
 
 def kernel(A):
-    A = cp.asarray(A)
-    A[:] = cp.linalg.cholesky(A) + cp.triu(A, k=1)
+    if isinstance(A, np.ndarray):
+        A = cp.asarray(A)
+    A[:] = cp.linalg.cholesky(cp.asarray(A)) + cp.triu(A, k=1)

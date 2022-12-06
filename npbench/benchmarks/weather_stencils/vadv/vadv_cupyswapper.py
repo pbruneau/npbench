@@ -5,11 +5,18 @@ BET_P = 0.5
 
 
 def vadv(utens_stage, u_stage, wcon, u_pos, utens, dtr_stage):
-    utens = cp.asarray(utens)
-    u_pos = cp.asarray(u_pos)
-    wcon = cp.asarray(wcon)
-    u_stage = cp.asarray(u_stage)
-    utens_stage = cp.asarray(utens_stage)
+    if isinstance(dtr_stage, np.ndarray):
+        dtr_stage = cp.asarray(dtr_stage)
+    if isinstance(utens, np.ndarray):
+        utens = cp.asarray(utens)
+    if isinstance(u_pos, np.ndarray):
+        u_pos = cp.asarray(u_pos)
+    if isinstance(wcon, np.ndarray):
+        wcon = cp.asarray(wcon)
+    if isinstance(u_stage, np.ndarray):
+        u_stage = cp.asarray(u_stage)
+    if isinstance(utens_stage, np.ndarray):
+        utens_stage = cp.asarray(utens_stage)
     I, J, K = utens_stage.shape[0], utens_stage.shape[1], utens_stage.shape[2]
     ccol = cp.ndarray((I, J, K), dtype=utens_stage.dtype)
     dcol = cp.ndarray((I, J, K), dtype=utens_stage.dtype)

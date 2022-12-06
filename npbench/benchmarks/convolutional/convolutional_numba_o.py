@@ -1,16 +1,19 @@
 from __future__ import print_function, division
 from sklearn import datasets
 import math
-import cupy as np
+import numpy as np
+import numba as nb
 import copy
 from terminaltables import AsciiTable
 import progressbar
+import pdb
 
 bar_widgets = [
     'Training: ', progressbar.Percentage(), ' ', progressbar.Bar(marker="-", left="[", right="]"),
     ' ', progressbar.ETA()
 ]
 
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def batch_iterator(X, y=None, batch_size=64):
     """ Simple batch generator """
     n_samples = X.shape[0]
@@ -46,11 +49,13 @@ class NeuralNetwork():
             X, y = validation_data
             self.val_set = {"X": X, "y": y}
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def set_trainable(self, trainable):
         """ Method which enables freezing of the weights of the network's layers. """
         for layer in self.layers:
             layer.trainable = trainable
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def add(self, layer):
         """ Method which adds a layer to the neural network """
         # If this is not the first layer added then set the input shape
@@ -65,6 +70,7 @@ class NeuralNetwork():
         # Add layer to the network
         self.layers.append(layer)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def test_on_batch(self, X, y):
         """ Evaluates the model over a single batch of samples """
         y_pred = self._forward_pass(X, training=False)
@@ -73,6 +79,7 @@ class NeuralNetwork():
 
         return loss, acc
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def train_on_batch(self, X, y):
         """ Single gradient update over one batch of samples """
         y_pred = self._forward_pass(X)
@@ -85,6 +92,7 @@ class NeuralNetwork():
 
         return loss, acc
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def fit(self, X, y, n_epochs, batch_size):
         """ Trains the model for a fixed number of epochs """
         #for _ in self.progressbar(range(n_epochs)):
@@ -103,6 +111,7 @@ class NeuralNetwork():
 
         return self.errors["training"], self.errors["validation"]
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def _forward_pass(self, X, training=True):
         """ Calculate the output of the NN """
         layer_output = X
@@ -111,11 +120,13 @@ class NeuralNetwork():
 
         return layer_output
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def _backward_pass(self, loss_grad):
         """ Propagate the gradient 'backwards' and update the weights in each layer """
         for layer in reversed(self.layers):
             loss_grad = layer.backward_pass(loss_grad)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def summary(self, name="Model Summary"):
         # Print model name
         print (AsciiTable([[name]]).table)
@@ -134,16 +145,52 @@ class NeuralNetwork():
         print (AsciiTable(table_data).table)
         print ("Total Parameters: %d\n" % tot_params)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def predict(self, X):
         """ Use the trained model to predict labels of X """
         return self._forward_pass(X, training=False)
 
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def normalize(X, axis=-1, order=2):
     """ Normalize the dataset X """
     l2 = np.atleast_1d(np.linalg.norm(X, order, axis))
     l2[l2 == 0] = 1
     return X / np.expand_dims(l2, axis)
 
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
+def train_test_split(X, y, test_size=0.5, shuffle=True, seed=None):
+    """ Split the data into train and test sets """
+    if shuffle:
+        X, y = shuffle_data(X, y, seed)
+    # Split the training data from test data in the ratio specified in
+    # test_size
+    split_i = len(y) - int(len(y) // (1 / test_size))
+    X_train, X_test = X[:split_i], X[split_i:]
+    y_train, y_test = y[:split_i], y[split_i:]
+
+    return X_train, X_test, y_train, y_test
+
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
+def shuffle_data(X, y, seed=None):
+    """ Random shuffle of the samples in X and y """
+    if seed:
+        np.random.seed(seed)
+    idx = np.arange(X.shape[0])
+    np.random.shuffle(idx)
+    return X[idx], y[idx]
+
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
+def to_categorical(x, n_col=None):
+    """ One-hot encoding of nominal values """
+
+    if not n_col:
+        n_col = np.amax(x) + 1
+        
+    one_hot = np.zeros((x.shape[0], n_col))
+    one_hot[np.arange(x.shape[0]), x] = 1
+    return one_hot
+
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def get_random_subsets(X, y, n_subsets, replacements=True):
     """ Return random subsets (with replacements) of the data """
     n_samples = np.shape(X)[0]
@@ -167,6 +214,7 @@ def get_random_subsets(X, y, n_subsets, replacements=True):
         subsets.append([X, y])
     return subsets
 
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def accuracy_score(y_true, y_pred):
     """ Compare y_true to y_pred and return the accuracy """
     accuracy = np.sum(y_true == y_pred, axis=0) / len(y_true)
@@ -182,6 +230,7 @@ class Adam():
         self.b1 = b1
         self.b2 = b2
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def update(self, w, grad_wrt_w):
         # If not initialized
         if self.m is None:
@@ -199,12 +248,15 @@ class Adam():
         return w - self.w_updt
 
 class Loss(object):
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def loss(self, y_true, y_pred):
         return NotImplementedError()
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, y, y_pred):
         raise NotImplementedError()
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def acc(self, y, y_pred):
         return 0
     
@@ -212,46 +264,57 @@ class Loss(object):
 class CrossEntropy(Loss):
     def __init__(self): pass
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def loss(self, y, p):
         # Avoid division by zero
         p = np.clip(p, 1e-15, 1 - 1e-15)
         return - y * np.log(p) - (1 - y) * np.log(1 - p)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def acc(self, y, p):
         return accuracy_score(np.argmax(y, axis=1), np.argmax(p, axis=1))
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, y, p):
         # Avoid division by zero
         p = np.clip(p, 1e-15, 1 - 1e-15)
         return - (y / p) + (1 - y) / (1 - p)
 
 class Sigmoid():
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         return 1 / (1 + np.exp(-x))
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         return self.__call__(x) * (1 - self.__call__(x))
 
 class Softmax():
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         e_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
         return e_x / np.sum(e_x, axis=-1, keepdims=True)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         p = self.__call__(x)
         return p * (1 - p)
 
 class TanH():
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         return 2 / (1 + np.exp(-2*x)) - 1
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         return 1 - np.power(self.__call__(x), 2)
 
 class ReLU():
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         return np.where(x >= 0, x, 0)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         return np.where(x >= 0, 1, 0)
 
@@ -259,9 +322,11 @@ class LeakyReLU():
     def __init__(self, alpha=0.2):
         self.alpha = alpha
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         return np.where(x >= 0, x, self.alpha * x)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         return np.where(x >= 0, 1, self.alpha)
 
@@ -269,9 +334,11 @@ class ELU():
     def __init__(self, alpha=0.1):
         self.alpha = alpha 
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         return np.where(x >= 0.0, x, self.alpha * (np.exp(x) - 1))
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         return np.where(x >= 0.0, 1, self.__call__(x) + self.alpha)
 
@@ -282,38 +349,47 @@ class SELU():
         self.alpha = 1.6732632423543772848170429916717
         self.scale = 1.0507009873554804934193349852946 
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         return self.scale * np.where(x >= 0.0, x, self.alpha*(np.exp(x)-1))
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         return self.scale * np.where(x >= 0.0, 1, self.alpha * np.exp(x))
 
 class SoftPlus():
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def __call__(self, x):
         return np.log(1 + np.exp(x))
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def gradient(self, x):
         return 1 / (1 + np.exp(-x))
 
 class Layer(object):
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def set_input_shape(self, shape):
         """ Sets the shape that the layer expects of the input in the forward
         pass method """
         self.input_shape = shape
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def layer_name(self):
         """ The name of the layer. Used in model summary. """
         return self.__class__.__name__
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def parameters(self):
         """ The number of trainable parameters used by the layer """
         return 0
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training):
         """ Propogates the signal forward in the network """
         raise NotImplementedError()
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         """ Propogates the accumulated gradient backwards in the network.
         If the has trainable weights then these weights are also tuned in this method.
@@ -321,6 +397,7 @@ class Layer(object):
         returns the gradient with respect to the output of the previous layer. """
         raise NotImplementedError()
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         """ The shape of the output produced by forward_pass """
         raise NotImplementedError()
@@ -345,6 +422,7 @@ class Dense(Layer):
         self.W = None
         self.w0 = None
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def initialize(self, optimizer):
         # Initialize the weights
         limit = 1 / math.sqrt(self.input_shape[0])
@@ -354,13 +432,16 @@ class Dense(Layer):
         self.W_opt  = copy.copy(optimizer)
         self.w0_opt = copy.copy(optimizer)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def parameters(self):
         return np.prod(self.W.shape) + np.prod(self.w0.shape)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         self.layer_input = X
         return X.dot(self.W) + self.w0
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         # Save weights used during forwards pass
         W = self.W
@@ -379,6 +460,7 @@ class Dense(Layer):
         accum_grad = accum_grad.dot(W.T)
         return accum_grad
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         return (self.n_units, )
 
@@ -426,9 +508,11 @@ class RNN(Layer):
         self.V_opt = copy.copy(optimizer)
         self.W_opt = copy.copy(optimizer)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def parameters(self):
         return np.prod(self.W.shape) + np.prod(self.U.shape) + np.prod(self.V.shape)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         self.layer_input = X
         batch_size, timesteps, input_dim = X.shape
@@ -448,6 +532,7 @@ class RNN(Layer):
 
         return self.outputs
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         _, timesteps, _ = accum_grad.shape
 
@@ -482,6 +567,7 @@ class RNN(Layer):
 
         return accum_grad_next
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         return self.input_shape
 
@@ -523,9 +609,11 @@ class Conv2D(Layer):
         self.W_opt  = copy.copy(optimizer)
         self.w0_opt = copy.copy(optimizer)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def parameters(self):
         return np.prod(self.W.shape) + np.prod(self.w0.shape)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         batch_size, channels, height, width = X.shape
         self.layer_input = X
@@ -541,6 +629,7 @@ class Conv2D(Layer):
         # Redistribute axises so that batch size comes first
         return output.transpose(3,0,1,2)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         # Reshape accumulated gradient into column shape
         accum_grad = accum_grad.transpose(1, 2, 3, 0).reshape(self.n_filters, -1)
@@ -567,9 +656,10 @@ class Conv2D(Layer):
 
         return accum_grad
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         channels, height, width = self.input_shape
-        pad_h, pad_w = determine_padding(self.filter_shape, output_shape=self.padding)
+        pad_h, pad_w = determine_padding(self.filter_shape, output_shape=self.padding)        
         output_height = (height + np.sum(pad_h) - self.filter_shape[0]) / self.stride + 1
         output_width = (width + np.sum(pad_w) - self.filter_shape[1]) / self.stride + 1
         return self.n_filters, int(output_height), int(output_width)
@@ -593,9 +683,11 @@ class BatchNormalization(Layer):
         self.gamma_opt  = copy.copy(optimizer)
         self.beta_opt = copy.copy(optimizer)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def parameters(self):
         return np.prod(self.gamma.shape) + np.prod(self.beta.shape)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
 
         # Initialize running mean and variance if first run
@@ -621,6 +713,7 @@ class BatchNormalization(Layer):
 
         return output
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
 
         # Save parameters used during the forward pass
@@ -646,6 +739,7 @@ class BatchNormalization(Layer):
 
         return accum_grad
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         return self.input_shape
 
@@ -659,6 +753,7 @@ class PoolingLayer(Layer):
         self.padding = padding
         self.trainable = True
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         self.layer_input = X
 
@@ -677,6 +772,7 @@ class PoolingLayer(Layer):
 
         return output
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         batch_size, _, _, _ = accum_grad.shape
         channels, height, width = self.input_shape
@@ -690,6 +786,7 @@ class PoolingLayer(Layer):
 
         return accum_grad
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         channels, height, width = self.input_shape
         out_height = (height - self.pool_shape[0]) / self.stride + 1
@@ -700,12 +797,14 @@ class PoolingLayer(Layer):
 
 
 class MaxPooling2D(PoolingLayer):
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def _pool_forward(self, X_col):
         arg_max = np.argmax(X_col, axis=0).flatten()
         output = X_col[arg_max, range(arg_max.size)]
         self.cache = arg_max
         return output
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def _pool_backward(self, accum_grad):
         accum_grad_col = np.zeros((np.prod(self.pool_shape), accum_grad.size))
         arg_max = self.cache
@@ -713,10 +812,12 @@ class MaxPooling2D(PoolingLayer):
         return accum_grad_col
 
 class AveragePooling2D(PoolingLayer):
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def _pool_forward(self, X_col):
         output = np.mean(X_col, axis=0)
         return output
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def _pool_backward(self, accum_grad):
         accum_grad_col = np.zeros((np.prod(self.pool_shape), accum_grad.size))
         accum_grad_col[:, range(accum_grad.size)] = 1. / accum_grad_col.shape[0] * accum_grad
@@ -746,6 +847,7 @@ class ConstantPadding2D(Layer):
             self.padding = (self.padding[0], (padding[1], padding[1]))
         self.padding_value = padding_value
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         output = np.pad(X,
             pad_width=((0,0), (0,0), self.padding[0], self.padding[1]),
@@ -753,12 +855,14 @@ class ConstantPadding2D(Layer):
             constant_values=self.padding_value)
         return output
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         pad_top, pad_left = self.padding[0][0], self.padding[1][0]
         height, width = self.input_shape[1], self.input_shape[2]
         accum_grad = accum_grad[:, :, pad_top:pad_top+height, pad_left:pad_left+width]
         return accum_grad
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         new_height = self.input_shape[1] + np.sum(self.padding[0])
         new_width = self.input_shape[2] + np.sum(self.padding[1])
@@ -793,13 +897,16 @@ class Flatten(Layer):
         self.trainable = True
         self.input_shape = input_shape
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         self.prev_shape = X.shape
         return X.reshape((X.shape[0], -1))
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         return accum_grad.reshape(self.prev_shape)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         return (np.prod(self.input_shape),)
 
@@ -819,17 +926,20 @@ class UpSampling2D(Layer):
         self.size = size
         self.input_shape = input_shape
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         self.prev_shape = X.shape
         # Repeat each axis as specified by size
         X_new = X.repeat(self.size[0], axis=2).repeat(self.size[1], axis=3)
         return X_new
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         # Down sample input to previous shape
         accum_grad = accum_grad[:, :, ::self.size[0], ::self.size[1]]
         return accum_grad
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         channels, height, width = self.input_shape
         return channels, self.size[0] * height, self.size[1] * width
@@ -849,13 +959,16 @@ class Reshape(Layer):
         self.shape = shape
         self.input_shape = input_shape
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         self.prev_shape = X.shape
         return X.reshape((X.shape[0], ) + self.shape)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         return accum_grad.reshape(self.prev_shape)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         return self.shape
 
@@ -877,6 +990,7 @@ class Dropout(Layer):
         self.pass_through = True
         self.trainable = True
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         c = (1 - self.p)
         if training:
@@ -884,9 +998,11 @@ class Dropout(Layer):
             c = self._mask
         return X * c
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         return accum_grad * self._mask
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         return self.input_shape
 
@@ -915,22 +1031,27 @@ class Activation(Layer):
         self.activation_func = activation_functions[name]()
         self.trainable = True
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def layer_name(self):
         return "Activation (%s)" % (self.activation_func.__class__.__name__)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def forward_pass(self, X, training=True):
         self.layer_input = X
         return self.activation_func(X)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def backward_pass(self, accum_grad):
         return accum_grad * self.activation_func.gradient(self.layer_input)
 
+    @nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
     def output_shape(self):
         return self.input_shape
 
 
 # Method which calculates the padding based on the specified output shape and the
 # shape of the filters
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def determine_padding(filter_shape, output_shape="same"):
 
     # No padding
@@ -953,6 +1074,7 @@ def determine_padding(filter_shape, output_shape="same"):
 
 
 # Reference: CS231n Stanford
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def get_im2col_indices(images_shape, filter_shape, padding, stride=1):
     # First figure out what the size of the output should be
     batch_size, channels, height, width = images_shape
@@ -977,6 +1099,7 @@ def get_im2col_indices(images_shape, filter_shape, padding, stride=1):
 # Method which turns the image shaped input to column shape.
 # Used during the forward pass.
 # Reference: CS231n Stanford
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def image_to_column(images, filter_shape, stride, output_shape='same'):
     filter_height, filter_width = filter_shape
 
@@ -1001,6 +1124,7 @@ def image_to_column(images, filter_shape, stride, output_shape='same'):
 # Method which turns the column shaped input to image shape.
 # Used during the backward pass.
 # Reference: CS231n Stanford
+@nb.jit(nopython=False, forceobj=True, parallel=False, fastmath=True)
 def column_to_image(cols, images_shape, filter_shape, stride, output_shape='same'):
     batch_size, channels, height, width = images_shape
     pad_h, pad_w = determine_padding(filter_shape, output_shape)
@@ -1019,6 +1143,7 @@ def column_to_image(cols, images_shape, filter_shape, stride, output_shape='same
 
     # Return image without padding
     return images_padded[:, :, pad_h[0]:height+pad_h[0], pad_w[0]:width+pad_w[0]]
+
 
 
 def main(X_train, X_test, y_train, y_test, f):

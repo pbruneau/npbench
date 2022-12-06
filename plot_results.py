@@ -294,7 +294,7 @@ for i in range(len(best_wide['benchmark'])):
                             color="black",
                             fontsize=8)
 
-ax1.set_ylabel("Benchmarks", labelpad=0)
+ax1.set_ylabel("Benchmarks ({})".format(args['preset']), labelpad=0)
 
 plt.tight_layout()
 plt.savefig("heatmap.pdf", dpi=600)

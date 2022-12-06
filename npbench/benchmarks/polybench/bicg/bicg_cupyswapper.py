@@ -3,7 +3,10 @@ import cupy as cp
 
 
 def kernel(A, p, r):
-    r = cp.asarray(r)
-    p = cp.asarray(p)
-    A = cp.asarray(A)
-    return cp.asnumpy(r @ A), cp.asnumpy(A @ p)
+    if isinstance(r, np.ndarray):
+        r = cp.asarray(r)
+    if isinstance(p, np.ndarray):
+        p = cp.asarray(p)
+    if isinstance(A, np.ndarray):
+        A = cp.asarray(A)
+    return r @ A, A @ p

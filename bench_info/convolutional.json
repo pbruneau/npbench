@@ -10,9 +10,9 @@
         "dwarf": "dense_linear_algebra",
         "parameters": {
             "S": { "N": 500, "f": 4},
-            "M": { "N": 1000, "d": 8},
-            "L": { "N": 1500, "d": 16},
-            "paper": { "N": 1500, "d": 16}
+            "M": { "N": 1000, "f": 8},
+            "L": { "N": 1500, "f": 16},
+            "paper": { "N": 1500, "f": 16}
         },
         "init": {
             "func_name": "initialize",

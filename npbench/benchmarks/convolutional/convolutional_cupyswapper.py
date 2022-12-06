@@ -4,6 +4,7 @@ import math
 import numpy as np
 import cupy as cp
 import copy
+import cupyx
 from terminaltables import AsciiTable
 import progressbar
 bar_widgets = ['Training: ', progressbar.Percentage(), ' ', progressbar.Bar
@@ -83,7 +84,7 @@ class NeuralNetwork:
                 ):
                 loss, _ = self.train_on_batch(X_batch, y_batch)
                 batch_error.append(loss)
-            self.errors['training'].append(cp.mean(batch_error))
+            self.errors['training'].append(cp.mean(cp.asarray(batch_error)))
             if self.val_set is not None:
                 val_loss, _ = self.test_on_batch(self.val_set['X'], self.
                     val_set['y'])
@@ -123,33 +124,14 @@ class NeuralNetwork:
 
 def normalize(X, axis=-1, order=2):
     """ Normalize the dataset X """
-    l2 = cp.atleast_1d(cp.linalg.norm(X, order, axis))
+    l2 = cp.atleast_1d(cp.linalg.norm(cp.asarray(X), order, axis))
     l2[l2 == 0] = 1
     return X / cp.expand_dims(l2, axis)
 
 
-def train_test_split(X, y, test_size=0.5, shuffle=True, seed=None):
-    """ Split the data into train and test sets """
-    if shuffle:
-        X, y = shuffle_data(X, y, seed)
-    split_i = len(y) - int(len(y) // (1 / test_size))
-    X_train, X_test = X[:split_i], X[split_i:]
-    y_train, y_test = y[:split_i], y[split_i:]
-    return X_train, X_test, y_train, y_test
-
-
-def shuffle_data(X, y, seed=None):
-    """ Random shuffle of the samples in X and y """
-    if seed:
-        cp.asarray(np.random.seed(cp.asnumpy(seed)))
-    idx = cp.arange(X.shape[0])
-    cp.random.shuffle(idx)
-    return X[idx], y[idx]
-
-
 def get_random_subsets(X, y, n_subsets, replacements=True):
     """ Return random subsets (with replacements) of the data """
-    n_samples = cp.shape(X)[0]
+    n_samples = cp.shape(cp.asarray(X))[0]
     X_y = cp.concatenate((X, y.reshape((1, len(y))).T), axis=1)
     cp.random.shuffle(X_y)
     subsets = []
@@ -167,7 +149,8 @@ def get_random_subsets(X, y, n_subsets, replacements=True):
 
 def accuracy_score(y_true, y_pred):
     """ Compare y_true to y_pred and return the accuracy """
-    accuracy = cp.sum(y_true == y_pred, axis=0) / len(y_true)
+    accuracy = cp.sum(cp.asarray(y_true) == cp.asarray(y_pred), axis=0) / len(
+        y_true)
     return accuracy
 
 
@@ -183,13 +166,15 @@ class Adam:
 
     def update(self, w, grad_wrt_w):
         if self.m is None:
-            self.m = cp.zeros(cp.shape(grad_wrt_w))
-            self.v = cp.zeros(cp.shape(grad_wrt_w))
+            self.m = cp.zeros(cp.shape(cp.asarray(grad_wrt_w)))
+            self.v = cp.zeros(cp.shape(cp.asarray(grad_wrt_w)))
         self.m = self.b1 * self.m + (1 - self.b1) * grad_wrt_w
-        self.v = self.b2 * self.v + (1 - self.b2) * cp.power(grad_wrt_w, 2)
+        self.v = self.b2 * self.v + (1 - self.b2) * cp.power(cp.asarray(
+            grad_wrt_w), 2)
         m_hat = self.m / (1 - self.b1)
         v_hat = self.v / (1 - self.b2)
-        self.w_updt = self.learning_rate * m_hat / (cp.sqrt(v_hat) + self.eps)
+        self.w_updt = self.learning_rate * m_hat / (cp.sqrt(cp.asarray(
+            v_hat)) + self.eps)
         return w - self.w_updt
 
 
@@ -211,14 +196,15 @@ class CrossEntropy(Loss):
         pass
 
     def loss(self, y, p):
-        p = cp.clip(p, 1e-15, 1 - 1e-15)
+        p = cp.clip(cp.asarray(p), 1e-15, 1 - 1e-15)
         return -y * cp.log(p) - (1 - y) * cp.log(1 - p)
 
     def acc(self, y, p):
-        return accuracy_score(cp.argmax(y, axis=1), cp.argmax(p, axis=1))
+        return accuracy_score(cp.argmax(cp.asarray(y), axis=1), cp.argmax(
+            cp.asarray(p), axis=1))
 
     def gradient(self, y, p):
-        p = cp.clip(p, 1e-15, 1 - 1e-15)
+        p = cp.clip(cp.asarray(p), 1e-15, 1 - 1e-15)
         return -(y / p) + (1 - y) / (1 - p)
 
 
@@ -234,7 +220,8 @@ class Sigmoid:
 class Softmax:
 
     def __call__(self, x):
-        e_x = cp.exp(x - cp.max(x, axis=-1, keepdims=True))
+        e_x = cp.exp(cp.asarray(x) - cp.max(cp.asarray(x), axis=-1,
+            keepdims=True))
         return e_x / cp.sum(e_x, axis=-1, keepdims=True)
 
     def gradient(self, x):
@@ -245,7 +232,7 @@ class Softmax:
 class TanH:
 
     def __call__(self, x):
-        return 2 / (1 + cp.exp(-2 * x)) - 1
+        return 2 / (1 + cp.exp(-2 * cp.asarray(x))) - 1
 
     def gradient(self, x):
         return 1 - cp.power(self.__call__(x), 2)
@@ -254,10 +241,10 @@ class TanH:
 class ReLU:
 
     def __call__(self, x):
-        return cp.where(x >= 0, x, 0)
+        return cp.where(cp.asarray(x) >= 0, cp.asarray(x), 0)
 
     def gradient(self, x):
-        return cp.where(x >= 0, 1, 0)
+        return cp.where(cp.asarray(x) >= 0, 1, 0)
 
 
 class LeakyReLU:
@@ -266,10 +253,11 @@ class LeakyReLU:
         self.alpha = alpha
 
     def __call__(self, x):
-        return cp.where(x >= 0, x, self.alpha * x)
+        return cp.where(cp.asarray(x) >= 0, cp.asarray(x), cp.asarray(self.
+            alpha) * cp.asarray(x))
 
     def gradient(self, x):
-        return cp.where(x >= 0, 1, self.alpha)
+        return cp.where(cp.asarray(x) >= 0, 1, cp.asarray(self.alpha))
 
 
 class ELU:
@@ -278,10 +266,12 @@ class ELU:
         self.alpha = alpha
 
     def __call__(self, x):
-        return cp.where(x >= 0.0, x, self.alpha * (cp.exp(x) - 1))
+        return cp.where(cp.asarray(x) >= 0.0, cp.asarray(x), cp.asarray(
+            self.alpha) * (cp.exp(cp.asarray(x)) - 1))
 
     def gradient(self, x):
-        return cp.where(x >= 0.0, 1, self.__call__(x) + self.alpha)
+        return cp.where(cp.asarray(x) >= 0.0, 1, self.__call__(x) + cp.
+            asarray(self.alpha))
 
 
 class SELU:
@@ -291,16 +281,18 @@ class SELU:
         self.scale = 1.0507009873554805
 
     def __call__(self, x):
-        return self.scale * cp.where(x >= 0.0, x, self.alpha * (cp.exp(x) - 1))
+        return self.scale * cp.where(cp.asarray(x) >= 0.0, cp.asarray(x), 
+            cp.asarray(self.alpha) * (cp.exp(cp.asarray(x)) - 1))
 
     def gradient(self, x):
-        return self.scale * cp.where(x >= 0.0, 1, self.alpha * cp.exp(x))
+        return self.scale * cp.where(cp.asarray(x) >= 0.0, 1, cp.asarray(
+            self.alpha) * cp.exp(cp.asarray(x)))
 
 
 class SoftPlus:
 
     def __call__(self, x):
-        return cp.log(1 + cp.exp(x))
+        return cp.log(1 + cp.exp(cp.asarray(x)))
 
     def gradient(self, x):
         return 1 / (1 + cp.exp(-x))
@@ -359,14 +351,14 @@ class Dense(Layer):
 
     def initialize(self, optimizer):
         limit = 1 / math.sqrt(self.input_shape[0])
-        self.W = cp.random.uniform(-limit, limit, (self.input_shape[0],
-            self.n_units))
-        self.w0 = cp.zeros((1, self.n_units))
+        self.W = cp.random.uniform(-limit, limit, (int(self.input_shape[0]),
+            int(self.n_units)))
+        self.w0 = cp.zeros((1, int(self.n_units)))
         self.W_opt = copy.copy(optimizer)
         self.w0_opt = copy.copy(optimizer)
 
     def parameters(self):
-        return cp.prod(self.W.shape) + cp.prod(self.w0.shape)
+        return cp.prod(self.W.shape).item() + cp.prod(self.w0.shape).item()
 
     def forward_pass(self, X, training=True):
         self.layer_input = X
@@ -376,7 +368,7 @@ class Dense(Layer):
         W = self.W
         if self.trainable:
             grad_w = self.layer_input.T.dot(accum_grad)
-            grad_w0 = cp.sum(accum_grad, axis=0, keepdims=True)
+            grad_w0 = cp.sum(cp.asarray(accum_grad), axis=0, keepdims=True)
             self.W = self.W_opt.update(self.W, grad_w)
             self.w0 = self.w0_opt.update(self.w0, grad_w0)
         accum_grad = accum_grad.dot(W.T)
@@ -421,25 +413,31 @@ class RNN(Layer):
     def initialize(self, optimizer):
         timesteps, input_dim = self.input_shape
         limit = 1 / math.sqrt(input_dim)
-        self.U = cp.random.uniform(-limit, limit, (self.n_units, input_dim))
+        self.U = cp.random.uniform(-limit, limit, (int(self.n_units), int(
+            input_dim)))
         limit = 1 / math.sqrt(self.n_units)
-        self.V = cp.random.uniform(-limit, limit, (input_dim, self.n_units))
-        self.W = cp.random.uniform(-limit, limit, (self.n_units, self.n_units))
+        self.V = cp.random.uniform(-limit, limit, (int(input_dim), int(self
+            .n_units)))
+        self.W = cp.random.uniform(-limit, limit, (int(self.n_units), int(
+            self.n_units)))
         self.U_opt = copy.copy(optimizer)
         self.V_opt = copy.copy(optimizer)
         self.W_opt = copy.copy(optimizer)
 
     def parameters(self):
-        return cp.prod(self.W.shape) + cp.prod(self.U.shape) + cp.prod(self
-            .V.shape)
+        return cp.prod(self.W.shape).item() + cp.prod(self.U.shape).item(
+            ) + cp.prod(self.V.shape).item()
 
     def forward_pass(self, X, training=True):
         self.layer_input = X
         batch_size, timesteps, input_dim = X.shape
-        self.state_input = cp.zeros((batch_size, timesteps, self.n_units))
-        self.states = cp.zeros((batch_size, timesteps + 1, self.n_units))
-        self.outputs = cp.zeros((batch_size, timesteps, input_dim))
-        self.states[:, (-1)] = cp.zeros((batch_size, self.n_units))
+        self.state_input = cp.zeros((int(batch_size), int(timesteps), int(
+            self.n_units)))
+        self.states = cp.zeros((int(batch_size), timesteps + 1, int(self.
+            n_units)))
+        self.outputs = cp.zeros((int(batch_size), int(timesteps), int(
+            input_dim)))
+        self.states[:, (-1)] = cp.zeros((int(batch_size), int(self.n_units)))
         for t in range(timesteps):
             self.state_input[:, (t)] = X[:, (t)].dot(self.U.T) + self.states[:,
                 (t - 1)].dot(self.W.T)
@@ -449,10 +447,10 @@ class RNN(Layer):
 
     def backward_pass(self, accum_grad):
         _, timesteps, _ = accum_grad.shape
-        grad_U = cp.zeros_like(self.U)
-        grad_V = cp.zeros_like(self.V)
-        grad_W = cp.zeros_like(self.W)
-        accum_grad_next = cp.zeros_like(accum_grad)
+        grad_U = cp.zeros_like(cp.asarray(self.U))
+        grad_V = cp.zeros_like(cp.asarray(self.V))
+        grad_W = cp.zeros_like(cp.asarray(self.W))
+        accum_grad_next = cp.zeros_like(cp.asarray(accum_grad))
         for t in reversed(range(timesteps)):
             grad_V += accum_grad[:, (t)].T.dot(self.states[:, (t)])
             grad_wrt_state = accum_grad[:, (t)].dot(self.V
@@ -504,15 +502,15 @@ class Conv2D(Layer):
     def initialize(self, optimizer):
         filter_height, filter_width = self.filter_shape
         channels = self.input_shape[0]
-        limit = 1 / math.sqrt(cp.prod(self.filter_shape))
+        limit = 1 / math.sqrt(cp.prod(cp.asarray(self.filter_shape)))
         self.W = cp.random.uniform(-limit, limit, size=(self.n_filters,
             channels, filter_height, filter_width))
-        self.w0 = cp.zeros((self.n_filters, 1))
+        self.w0 = cp.zeros((int(self.n_filters), 1))
         self.W_opt = copy.copy(optimizer)
         self.w0_opt = copy.copy(optimizer)
 
     def parameters(self):
-        return cp.prod(self.W.shape) + cp.prod(self.w0.shape)
+        return cp.prod(self.W.shape).item() + cp.prod(self.w0.shape).item()
 
     def forward_pass(self, X, training=True):
         batch_size, channels, height, width = X.shape
@@ -529,7 +527,7 @@ class Conv2D(Layer):
             n_filters, -1)
         if self.trainable:
             grad_w = accum_grad.dot(self.X_col.T).reshape(self.W.shape)
-            grad_w0 = cp.sum(accum_grad, axis=1, keepdims=True)
+            grad_w0 = cp.sum(cp.asarray(accum_grad), axis=1, keepdims=True)
             self.W = self.W_opt.update(self.W, grad_w)
             self.w0 = self.w0_opt.update(self.w0, grad_w0)
         accum_grad = self.W_col.T.dot(accum_grad)
@@ -541,10 +539,10 @@ class Conv2D(Layer):
         channels, height, width = self.input_shape
         pad_h, pad_w = determine_padding(self.filter_shape, output_shape=
             self.padding)
-        output_height = (height + cp.sum(pad_h) - self.filter_shape[0]
-            ) / self.stride + 1
-        output_width = (width + cp.sum(pad_w) - self.filter_shape[1]
-            ) / self.stride + 1
+        output_height = (height + cp.sum(cp.asarray(pad_h)).item() - self.
+            filter_shape[0]) / self.stride + 1
+        output_width = (width + cp.sum(cp.asarray(pad_w)).item() - self.
+            filter_shape[1]) / self.stride + 1
         return self.n_filters, int(output_height), int(output_width)
 
 
@@ -566,15 +564,16 @@ class BatchNormalization(Layer):
         self.beta_opt = copy.copy(optimizer)
 
     def parameters(self):
-        return cp.prod(self.gamma.shape) + cp.prod(self.beta.shape)
+        return cp.prod(self.gamma.shape).item() + cp.prod(self.beta.shape
+            ).item()
 
     def forward_pass(self, X, training=True):
         if self.running_mean is None:
-            self.running_mean = cp.mean(X, axis=0)
-            self.running_var = cp.var(X, axis=0)
+            self.running_mean = cp.mean(cp.asarray(X), axis=0)
+            self.running_var = cp.var(cp.asarray(X), axis=0)
         if training and self.trainable:
-            mean = cp.mean(X, axis=0)
-            var = cp.var(X, axis=0)
+            mean = cp.mean(cp.asarray(X), axis=0)
+            var = cp.var(cp.asarray(X), axis=0)
             self.running_mean = self.momentum * self.running_mean + (1 -
                 self.momentum) * mean
             self.running_var = self.momentum * self.running_var + (1 - self
@@ -583,7 +582,7 @@ class BatchNormalization(Layer):
             mean = self.running_mean
             var = self.running_var
         self.X_centered = X - mean
-        self.stddev_inv = 1 / cp.sqrt(var + self.eps)
+        self.stddev_inv = 1 / cp.sqrt(var + cp.asarray(self.eps))
         X_norm = self.X_centered * self.stddev_inv
         output = self.gamma * X_norm + self.beta
         return output
@@ -592,15 +591,16 @@ class BatchNormalization(Layer):
         gamma = self.gamma
         if self.trainable:
             X_norm = self.X_centered * self.stddev_inv
-            grad_gamma = cp.sum(accum_grad * X_norm, axis=0)
-            grad_beta = cp.sum(accum_grad, axis=0)
+            grad_gamma = cp.sum(cp.asarray(accum_grad) * cp.asarray(X_norm),
+                axis=0)
+            grad_beta = cp.sum(cp.asarray(accum_grad), axis=0)
             self.gamma = self.gamma_opt.update(self.gamma, grad_gamma)
             self.beta = self.beta_opt.update(self.beta, grad_beta)
         batch_size = accum_grad.shape[0]
         accum_grad = 1 / batch_size * gamma * self.stddev_inv * (batch_size *
             accum_grad - cp.sum(accum_grad, axis=0) - self.X_centered * 
-            self.stddev_inv ** 2 * cp.sum(accum_grad * self.X_centered, axis=0)
-            )
+            self.stddev_inv ** 2 * cp.sum(accum_grad * cp.asarray(self.
+            X_centered), axis=0))
         return accum_grad
 
     def output_shape(self):
@@ -650,13 +650,14 @@ class PoolingLayer(Layer):
 class MaxPooling2D(PoolingLayer):
 
     def _pool_forward(self, X_col):
-        arg_max = cp.argmax(X_col, axis=0).flatten()
+        arg_max = cp.argmax(cp.asarray(X_col), axis=0).flatten()
         output = X_col[arg_max, range(arg_max.size)]
         self.cache = arg_max
         return output
 
     def _pool_backward(self, accum_grad):
-        accum_grad_col = cp.zeros((cp.prod(self.pool_shape), accum_grad.size))
+        accum_grad_col = cp.zeros((cp.prod(cp.asarray(self.pool_shape)),
+            int(accum_grad.size)))
         arg_max = self.cache
         accum_grad_col[arg_max, range(accum_grad.size)] = accum_grad
         return accum_grad_col
@@ -665,11 +666,12 @@ class MaxPooling2D(PoolingLayer):
 class AveragePooling2D(PoolingLayer):
 
     def _pool_forward(self, X_col):
-        output = cp.mean(X_col, axis=0)
+        output = cp.mean(cp.asarray(X_col), axis=0)
         return output
 
     def _pool_backward(self, accum_grad):
-        accum_grad_col = cp.zeros((cp.prod(self.pool_shape), accum_grad.size))
+        accum_grad_col = cp.zeros((cp.prod(cp.asarray(self.pool_shape)),
+            int(accum_grad.size)))
         accum_grad_col[:, (range(accum_grad.size))
             ] = 1.0 / accum_grad_col.shape[0] * accum_grad
         return accum_grad_col
@@ -700,8 +702,9 @@ class ConstantPadding2D(Layer):
         self.padding_value = padding_value
 
     def forward_pass(self, X, training=True):
-        output = cp.pad(X, pad_width=((0, 0), (0, 0), self.padding[0], self
-            .padding[1]), mode='constant', constant_values=self.padding_value)
+        output = cp.pad(cp.asarray(X), pad_width=((0, 0), (0, 0), self.
+            padding[0], self.padding[1]), mode='constant', constant_values=
+            self.padding_value)
         return output
 
     def backward_pass(self, accum_grad):
@@ -712,8 +715,8 @@ class ConstantPadding2D(Layer):
         return accum_grad
 
     def output_shape(self):
-        new_height = self.input_shape[1] + cp.sum(self.padding[0])
-        new_width = self.input_shape[2] + cp.sum(self.padding[1])
+        new_height = self.input_shape[1] + cp.sum(self.padding[0]).item()
+        new_width = self.input_shape[2] + cp.sum(self.padding[1]).item()
         return self.input_shape[0], new_height, new_width
 
 
@@ -755,7 +758,7 @@ class Flatten(Layer):
         return accum_grad.reshape(self.prev_shape)
 
     def output_shape(self):
-        return cp.prod(self.input_shape),
+        return cp.prod(cp.asarray(self.input_shape)),
 
 
 class UpSampling2D(Layer):
@@ -895,8 +898,10 @@ def get_im2col_indices(images_shape, filter_shape, padding, stride=1):
     batch_size, channels, height, width = images_shape
     filter_height, filter_width = filter_shape
     pad_h, pad_w = padding
-    out_height = int((height + cp.sum(pad_h) - filter_height) / stride + 1)
-    out_width = int((width + cp.sum(pad_w) - filter_width) / stride + 1)
+    out_height = int((height + cp.sum(cp.asarray(pad_h)).item() -
+        filter_height) / stride + 1)
+    out_width = int((width + cp.sum(cp.asarray(pad_w)).item() -
+        filter_width) / stride + 1)
     i0 = cp.repeat(cp.arange(filter_height), filter_width)
     i0 = cp.tile(i0, channels)
     i1 = stride * cp.repeat(cp.arange(out_height), out_width)
@@ -912,8 +917,8 @@ def get_im2col_indices(images_shape, filter_shape, padding, stride=1):
 def image_to_column(images, filter_shape, stride, output_shape='same'):
     filter_height, filter_width = filter_shape
     pad_h, pad_w = determine_padding(filter_shape, output_shape)
-    images_padded = cp.pad(images, ((0, 0), (0, 0), pad_h, pad_w), mode=
-        'constant')
+    images_padded = cp.pad(cp.asarray(images), ((0, 0), (0, 0), pad_h,
+        pad_w), mode='constant')
     k, i, j = get_im2col_indices(images.shape, filter_shape, (pad_h, pad_w),
         stride)
     cols = images_padded[:, (k), (i), (j)]
@@ -927,21 +932,31 @@ def column_to_image(cols, images_shape, filter_shape, stride, output_shape=
     'same'):
     batch_size, channels, height, width = images_shape
     pad_h, pad_w = determine_padding(filter_shape, output_shape)
-    height_padded = height + cp.sum(pad_h)
-    width_padded = width + cp.sum(pad_w)
-    images_padded = cp.zeros((batch_size, channels, height_padded,
-        width_padded))
+    height_padded = height + cp.sum(cp.asarray(pad_h)).item()
+    width_padded = width + cp.sum(cp.asarray(pad_w)).item()
+    images_padded = cp.zeros((int(batch_size), int(channels), int(
+        height_padded), int(width_padded)))
     k, i, j = get_im2col_indices(images_shape, filter_shape, (pad_h, pad_w),
         stride)
-    cols = cols.reshape(channels * cp.prod(filter_shape), -1, batch_size)
+    cols = cols.reshape(channels * cp.prod(cp.asarray(filter_shape)).item(),
+        -1, batch_size)
     cols = cols.transpose(2, 0, 1)
-    cp.asarray(np.add.at(cp.asnumpy(images_padded), cp.asnumpy((slice(None),
-        k, i, j)), cp.asnumpy(cols)))
+    cupyx.scatter_add(images_padded, (slice(None), k, i, j), cols)
     return images_padded[:, :, pad_h[0]:height + pad_h[0], pad_w[0]:width +
         pad_w[0]]
 
 
 def main(X_train, X_test, y_train, y_test, f):
+    if isinstance(f, np.ndarray):
+        f = cp.asarray(f)
+    if isinstance(y_test, np.ndarray):
+        y_test = cp.asarray(y_test)
+    if isinstance(y_train, np.ndarray):
+        y_train = cp.asarray(y_train)
+    if isinstance(X_test, np.ndarray):
+        X_test = cp.asarray(X_test)
+    if isinstance(X_train, np.ndarray):
+        X_train = cp.asarray(X_train)
     optimizer = Adam()
     clf = NeuralNetwork(optimizer=optimizer, loss=CrossEntropy,
         validation_data=(X_test, y_test))

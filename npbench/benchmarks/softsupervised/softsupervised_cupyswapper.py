@@ -5,24 +5,25 @@ from sklearn.metrics.pairwise import euclidean_distances
 
 
 def sqdist(X):
-    sx = cp.sum(X ** 2, axis=1, keepdims=True)
+    sx = cp.sum(cp.asarray(X) ** 2, axis=1, keepdims=True)
     mat = -2 * X.dot(X.T) + sx + sx.T
-    return cp.maximum(mat, 0.0)
+    return cp.maximum(cp.asarray(mat), 0.0)
 
 
 def local_rbfdot(dat, quantile=0.02):
     N, d = dat.shape
-    means = cp.mean(dat, 0)
-    dat = cp.subtract(dat, means)
+    means = cp.mean(cp.asarray(dat), 0)
+    dat = cp.subtract(cp.asarray(dat), means)
     maxs = cp.amax(cp.absolute(dat), 0)
     maxs = (maxs < np.finfo(float).eps) * 1.0 + (maxs >= np.finfo(float).eps
         ) * maxs
     dat = cp.divide(dat, maxs)
     kern = sqdist(dat)
-    sigmas = cp.array([cp.percentile(cp.sqrt(kern), quantile * 100, axis=1)])
+    sigmas = cp.array([cp.percentile(cp.sqrt(cp.asarray(kern)), quantile * 
+        100, axis=1)])
     c_sigmas = sigmas.reshape((-1, 1))
     c_sigmas = c_sigmas.dot(sigmas)
-    kern = cp.exp(-kern / c_sigmas)
+    kern = cp.exp(-kern / cp.asarray(c_sigmas))
     return kern
 
 
@@ -57,13 +58,14 @@ class SoftSupervised:
         if len(self.l_inds_) == self.n_:
             raise Exception(
                 'classes should have at least 1 missing element (value == -1)')
-        self.K_ = len(cp.unique(self.classes_)) - 1
-        if not all(cp.unique(self.classes_) == cp.arange(-1, self.K_)):
+        self.K_ = len(cp.unique(cp.asarray(self.classes_))) - 1
+        if not all(cp.unique(cp.asarray(self.classes_)) == cp.arange(-1,
+            self.K_)):
             raise Exception('classes should range from -1 to K-1')
         if self.p_ is None:
-            self.p_ = cp.ones((self.n_, self.K_)) * (1.0 / self.K_)
-            self.q_ = cp.ones((self.n_, self.K_)) * (1.0 / self.K_)
-            self.r_ = cp.zeros((self.n_, self.K_))
+            self.p_ = cp.ones((int(self.n_), int(self.K_))) * (1.0 / self.K_)
+            self.q_ = cp.ones((int(self.n_), int(self.K_))) * (1.0 / self.K_)
+            self.r_ = cp.zeros((int(self.n_), int(self.K_)))
         classes_bin = self.classes_[self.l_inds_]
         classes_bin = cp.array(list(zip(self.l_inds_, classes_bin)), dtype=
             np.int32)
@@ -88,52 +90,58 @@ class SoftSupervised:
     def _kl(self, p1, p2):
         p1[p1 == 0.0] = sys.float_info.epsilon
         p2[p2 == 0.0] = sys.float_info.epsilon
-        return cp.sum(p1 * cp.log(p1 / p2), axis=1)
+        return cp.sum(cp.asarray(p1) * cp.log(cp.asarray(p1) / cp.asarray(
+            p2)), axis=1)
 
     def _h(self, p1):
         p1[p1 == 0] = sys.float_info.epsilon
-        return -cp.sum(p1 * cp.log(p1), axis=1)
+        return -cp.sum(cp.asarray(p1) * cp.log(cp.asarray(p1)), axis=1)
 
     def _update_c(self):
         res = 0.0
         res += cp.sum(self._kl(self.r_[(self.l_inds_), :], self.q_[(self.
-            l_inds_), :]))
+            l_inds_), :])).item()
         for i in range(self.n_):
             res += self.mu_ * cp.sum(self.weights_[(i), :] * self._kl(self.
-                p_[(i), :], self.q_))
-        res -= self.nu_ * cp.sum(self._h(self.p_))
+                p_[(i), :], self.q_)).item()
+        res -= self.nu_ * cp.sum(self._h(self.p_)).item()
         self.new_c_ = res
 
     def _update_p(self):
-        gamma = self.nu_ + self.mu_ * cp.asarray(cp.sum(self.weights_, axis=1)
-            ).reshape(-1)
+        gamma = self.nu_ + self.mu_ * cp.asarray(cp.sum(cp.asarray(self.
+            weights_), axis=1)).reshape(-1)
         gamma = gamma.reshape((-1, 1))
-        q_epsilon = cp.copy(self.q_)
+        q_epsilon = cp.copy(cp.asarray(self.q_))
         q_epsilon[q_epsilon == 0.0] = sys.float_info.epsilon
         q_log = cp.log(q_epsilon) - 1.0
-        beta = -cp.ones((self.n_, self.K_)) * self.nu_
+        beta = -cp.ones((int(self.n_), int(self.K_))) * self.nu_
         for i in range(self.n_):
             beta[(i), :] += cp.sum(self.mu_ * self.weights_[(i), :].reshape
                 (-1, 1) * q_log, axis=0)
-        self.p_ = cp.exp(beta / gamma)
-        self.p_ = self.p_ / cp.sum(self.p_, axis=1)[:, (None)]
+        self.p_ = cp.exp(cp.asarray(beta) / cp.asarray(gamma))
+        self.p_ = self.p_ / cp.sum(cp.asarray(self.p_), axis=1)[:, (None)]
 
     def _update_q(self):
-        numerator = cp.copy(self.r_)
+        numerator = cp.copy(cp.asarray(self.r_))
         for i in range(self.n_):
             numerator[(i), :] += cp.sum(self.mu_ * self.weights_[:, (i)].
-                reshape(-1, 1) * self.p_, axis=0)
-        denominator = cp.sum(self.r_, axis=1) + self.mu_ * cp.asarray(cp.
-            sum(self.weights_, axis=0)).reshape(-1)
+                reshape(-1, 1) * cp.asarray(self.p_), axis=0)
+        denominator = cp.sum(cp.asarray(self.r_), axis=1
+            ) + self.mu_ * cp.asarray(cp.sum(cp.asarray(self.weights_), axis=0)
+            ).reshape(-1)
         self.q_ = numerator / denominator[:, (None)]
 
     def predict(self):
-        return cp.argmax(self.p_, axis=1)
+        return cp.argmax(cp.asarray(self.p_), axis=1)
 
     def predict_proba(self):
         return self.p_
 
 
 def main(data, labels):
+    if isinstance(labels, np.ndarray):
+        labels = cp.asarray(labels)
+    if isinstance(data, np.ndarray):
+        data = cp.asarray(data)
     model = SoftSupervised(dotfunc=local_rbfdot, debug=True)
     model.fit(data, labels)
